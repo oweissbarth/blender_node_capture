@@ -38,5 +38,5 @@ def register():
 
 def unregister():
     from bpy.utils import unregister_class
-    for c in classes:
+    for c in reversed(classes):
         unregister_class(c)

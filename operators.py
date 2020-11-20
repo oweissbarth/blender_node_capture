@@ -28,17 +28,21 @@ class NODECAPTURE_OT_CaptureNodeTree(bpy.types.Operator):
         
         size = region_max - region_min
          
-        padding = 0
-        steps_x = math.ceil(size.x / (context.region.width-padding))+1
-        steps_y = math.ceil(size.y / (context.region.height-padding))+1
+        padding = 50
+        steps_x = math.ceil(size.x / (context.region.width-2*padding))+1
+        steps_y = math.ceil(size.y / (context.region.height-2*padding))+1
         
         win = context.window_manager
 
         total_steps = 2*steps_x*steps_y
         win.progress_begin(0, 100)
 
-        stepsize_x = context.region.width-padding
-        stepsize_y = context.region.height-padding
+        stepsize_x = context.region.width-2*padding
+        stepsize_y = context.region.height-2*padding
+        section_size_x = context.region.width - 2*padding
+        section_size_y = context.region.height - 2*padding
+        screenshot_size_x = context.region.width
+        screenshot_size_y = context.region.height
 
         # Create Screenshots
         for y in range(steps_y):
@@ -46,24 +50,36 @@ class NODECAPTURE_OT_CaptureNodeTree(bpy.types.Operator):
                 bpy.ops.screen.screenshot(filepath=bpy.app.tempdir+"capture_nodes_"+str(x)+"_"+str(y)+".png", full=False)
                 bpy.ops.view2d.pan(deltax=stepsize_x, deltay=0)
                 win.progress_update((y*steps_x + x)*100/total_steps)
-            bpy.ops.view2d.pan(deltax=-steps_x*stepsize_x, deltay=stepsize_y)
+            bpy.ops.view2d.pan(deltax=-steps_x*section_size_x, deltay=section_size_y)
 
         
         # Assemble Screenshots
-        canvas_img = bpy.data.images.new("CaptureNodes", steps_x*stepsize_x, steps_y*stepsize_y)
-        canvas = np.empty((steps_x*stepsize_x, steps_y*stepsize_y, 4), dtype=np.float32)
-        temp = np.empty((stepsize_x+padding) * (stepsize_y+padding)* 4, dtype=np.float32)
+        canvas_img = bpy.data.images.new("CaptureNodes", steps_x*section_size_x, steps_y*section_size_y)
+        canvas = np.empty((steps_x*section_size_x, steps_y*section_size_y, 4), dtype=np.float32)
+        temp = np.empty((screenshot_size_x) * (screenshot_size_y)* 4, dtype=np.float32)
 
         for y in range(steps_y):
             for x in range(steps_x):
                 img = bpy.data.images.load(bpy.app.tempdir+"capture_nodes_"+str(x)+"_"+str(y)+".png")
-                offset_x = x*stepsize_x
-                offset_y = y*stepsize_y
+                offset_x = x*section_size_x
+                offset_y = y*section_size_y
 
                 img.pixels.foreach_get(temp)
-                temp_img = np.swapaxes(temp.reshape((stepsize_y+padding, stepsize_x+padding, 4)), 0, 1)
+                temp_img = np.swapaxes(temp.reshape((screenshot_size_y, screenshot_size_x, 4)), 0, 1)
 
-                canvas[offset_x:offset_x+stepsize_x,offset_y:offset_y+stepsize_y, :] = temp_img[:stepsize_x, :stepsize_y, :]
+                canvas_start_x = offset_x
+                canvas_end_x = offset_x+section_size_x
+
+                canvas_start_y = offset_y
+                canvas_end_y = offset_y+section_size_y
+
+                section_start_x = padding
+                section_end_x = section_size_x+padding
+
+                section_start_y = padding
+                section_end_y = section_size_y + padding
+
+                canvas[canvas_start_x: canvas_end_x, canvas_start_y:canvas_end_y, :] = temp_img[section_start_x:section_end_x, section_start_y:section_end_y, :]
 
                 bpy.data.images.remove(img)
                 win.progress_update((steps_x*steps_y + y*steps_x + x)*100/total_steps)
