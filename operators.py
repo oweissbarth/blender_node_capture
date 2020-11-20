@@ -10,7 +10,7 @@ class NODECAPTURE_OT_CaptureNodeTree(bpy.types.Operator):
     filepath: bpy.props.StringProperty(subtype="FILE_PATH")
 
     def execute(self, context):
-        
+
         node_tree = context.space_data.edit_tree
 
         current_center = node_tree.view_center
@@ -31,6 +31,11 @@ class NODECAPTURE_OT_CaptureNodeTree(bpy.types.Operator):
         padding = 0
         steps_x = math.ceil(size.x / (context.region.width-padding))+1
         steps_y = math.ceil(size.y / (context.region.height-padding))+1
+        
+        win = context.window_manager
+
+        total_steps = 2*steps_x*steps_y
+        win.progress_begin(0, 100)
 
         stepsize_x = context.region.width-padding
         stepsize_y = context.region.height-padding
@@ -40,6 +45,7 @@ class NODECAPTURE_OT_CaptureNodeTree(bpy.types.Operator):
             for x in range(steps_x):
                 bpy.ops.screen.screenshot(filepath=bpy.app.tempdir+"capture_nodes_"+str(x)+"_"+str(y)+".png", full=False)
                 bpy.ops.view2d.pan(deltax=stepsize_x, deltay=0)
+                win.progress_update((y*steps_x + x)*100/total_steps)
             bpy.ops.view2d.pan(deltax=-steps_x*stepsize_x, deltay=stepsize_y)
 
         
@@ -60,20 +66,37 @@ class NODECAPTURE_OT_CaptureNodeTree(bpy.types.Operator):
                 canvas[offset_x:offset_x+stepsize_x,offset_y:offset_y+stepsize_y, :] = temp_img[:stepsize_x, :stepsize_y, :]
 
                 bpy.data.images.remove(img)
+                win.progress_update((steps_x*steps_y + y*steps_x + x)*100/total_steps)
         canvas_img.pixels.foreach_set( np.swapaxes(canvas, 0, 1).ravel())
 
         canvas_img.file_format = "PNG"
         canvas_img.filepath_raw = self.filepath
         canvas_img.save()
 
-        #bpy.data.images.remove(canvas_img)
+        # restore UI
+        context.area.spaces.active.show_region_ui = self.region_ui_before
+        context.area.spaces.active.show_region_header = self.region_header_before
+        context.area.spaces.active.show_region_toolbar = self.region_toolbar_before
 
-        
+        bpy.data.images.remove(canvas_img)
+
+        win.progress_end()
         return {'FINISHED'}
 
     def invoke(self, context, event):
         wm = context.window_manager
         wm.fileselect_add(self)
+        #bpy.ops.nodecapture.hideui()
+   
+        self.region_ui_before = context.area.spaces.active.show_region_ui
+        self.region_header_before = context.area.spaces.active.show_region_header
+        self.region_toolbar_before = context.area.spaces.active.show_region_toolbar
+
+        context.area.spaces.active.show_region_ui = False
+        context.area.spaces.active.show_region_header = False
+        context.area.spaces.active.show_region_toolbar = False
+        
+
         return {'RUNNING_MODAL'}
 
 

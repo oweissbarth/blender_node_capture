@@ -8,5 +8,4 @@ class NODECAPTURE_PT_CaptureNodeTreePanel(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        layout.operator("NODECAPTURE_OT_capturenodetree")
-        
+        layout.operator("NODECAPTURE_OT_capturenodetree")        
